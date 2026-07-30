@@ -1,0 +1,13 @@
+{
+  "name": "pi-sandbox-usage-status",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Pi extension: active-provider quota footer for OpenAI Codex and Kimi Coding.",
+  "keywords": ["pi-package"],
+  "scripts": {
+    "test": "node --experimental-strip-types test.mjs"
+  },
+  "pi": {
+    "extensions": ["extensions/usage-status.ts"]
+  }
+}
