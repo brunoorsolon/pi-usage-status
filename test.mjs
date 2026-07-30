@@ -1,0 +1,51 @@
+import assert from "node:assert/strict";
+
+const { bearerToken, parseCodexUsage, parseKimiUsage } = await import(
+  "./extensions/usage-status.ts"
+);
+
+// API-key auth wins; headers-only OAuth (kimi-coding) falls back to Bearer.
+assert.equal(bearerToken({ apiKey: "key" }), "key");
+assert.equal(bearerToken({ headers: { Authorization: "Bearer oauth-token" } }), "oauth-token");
+assert.equal(bearerToken({ headers: { Authorization: "Basic xyz" } }), undefined);
+assert.equal(bearerToken(undefined), undefined);
+
+const now = 1_786_000_000_000;
+
+// Standard Codex plan: 5h primary + weekly secondary.
+assert.deepEqual(parseCodexUsage({
+  rate_limit: {
+    primary_window: { used_percent: 23, reset_after_seconds: 7200 },
+    secondary_window: { used_percent: 61, reset_after_seconds: 400000 },
+  },
+}, now), {
+  session: { percent: 23, resetsAtMs: now + 7_200_000 },
+  sessionLabel: "5h",
+  weekly: { percent: 61, resetsAtMs: now + 400_000_000 },
+});
+
+// Pro Lite exposes the weekly window as the only primary window.
+assert.deepEqual(parseCodexUsage({
+  rate_limit: {
+    primary_window: { used_percent: 71, reset_after_seconds: 511632, limit_window_seconds: 604800 },
+    secondary_window: null,
+  },
+}, now), {
+  session: { percent: 71, resetsAtMs: now + 511_632_000 },
+  sessionLabel: "W",
+});
+
+// Kimi: limits[0] is the short window, usage is the overall quota.
+assert.deepEqual(parseKimiUsage({
+  usage: { limit: "100", used: "63", resetTime: "2026-08-05T12:12:42.477Z" },
+  limits: [{ window: { duration: 300, timeUnit: "TIME_UNIT_MINUTE" },
+    detail: { limit: "100", used: "54", resetTime: "2026-07-30T23:12:42.477Z" } }],
+}, now), {
+  session: { percent: 54, resetsAtMs: Date.parse("2026-07-30T23:12:42.477Z") },
+  sessionLabel: "5h",
+  weekly: { percent: 63, resetsAtMs: Date.parse("2026-08-05T12:12:42.477Z") },
+});
+
+assert.throws(() => parseKimiUsage({}), /unrecognized response shape/);
+
+console.log("usage-status tests passed");
