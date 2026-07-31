@@ -87,6 +87,12 @@ async function fetchJson(url: string, token: string, extraHeaders: Record<string
 
 // --- rendering ---
 
+export function usageColor(percent: number): "success" | "warning" | "error" {
+  if (percent <= 50) return "success";
+  if (percent <= 75) return "warning";
+  return "error";
+}
+
 function renderBar(percent: number): string {
   const cells = 8;
   const filled = Math.round((Math.max(0, Math.min(100, percent)) / 100) * cells);
@@ -103,7 +109,7 @@ function renderReset(resetsAtMs: number | undefined, nowMs: number): string {
 function render(theme: Theme, label: string, usage: ProviderUsage): string {
   const nowMs = Date.now();
   const windowText = (win: WindowUsage) =>
-    theme.fg("muted", `${renderBar(win.percent)} ${Math.round(win.percent)}%`) +
+    theme.fg(usageColor(win.percent), `${renderBar(win.percent)} ${Math.round(win.percent)}%`) +
     theme.fg("dim", renderReset(win.resetsAtMs, nowMs));
   let text = theme.fg("dim", `${label} `) + theme.fg("muted", `${usage.sessionLabel} `) + windowText(usage.session);
   if (usage.weekly) text += theme.fg("dim", " · W ") + windowText(usage.weekly);
