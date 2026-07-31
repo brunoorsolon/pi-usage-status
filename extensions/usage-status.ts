@@ -24,7 +24,7 @@ interface WindowUsage {
 
 interface ProviderUsage {
   session: WindowUsage;
-  sessionLabel: "5h" | "W";
+  sessionLabel: "5h" | "7d";
   weekly?: WindowUsage;
 }
 
@@ -45,7 +45,7 @@ export function parseCodexUsage(data: any, nowMs: number): ProviderUsage {
   });
   // Pro Lite exposes its weekly window as the only primary window.
   if (!secondary && Number(primary?.limit_window_seconds) === WEEK_SECONDS) {
-    return { session: toWindow(primary), sessionLabel: "W" };
+    return { session: toWindow(primary), sessionLabel: "7d" };
   }
   return {
     session: toWindow(primary),
@@ -63,15 +63,26 @@ export function parseKimiUsage(data: any, nowMs: number): ProviderUsage {
     const resetMs = Date.parse(detail?.resetTime ?? "");
     return { percent: (used / limit) * 100, resetsAtMs: Number.isFinite(resetMs) ? resetMs : undefined };
   };
-  // limits[0] is the short (5-hour) window; `usage` is the overall quota.
-  const session = toWindow(data?.limits?.[0]?.detail);
-  const weekly = toWindow(data?.usage);
-  if (!session && !weekly) throw new Error("unrecognized response shape");
-  return {
-    session: session ?? weekly!,
-    sessionLabel: "5h",
-    weekly: session ? weekly : undefined,
+  const durationMinutes = (window: any): number | undefined => {
+    const duration = Number(window?.duration);
+    if (!Number.isFinite(duration) || duration <= 0) return undefined;
+    switch (window?.timeUnit) {
+      case "TIME_UNIT_MINUTE": return duration;
+      case "TIME_UNIT_HOUR": return duration * 60;
+      case "TIME_UNIT_DAY": return duration * 24 * 60;
+      default: return undefined;
+    }
   };
+  // The API returns the rolling windows in no guaranteed order. `usage` is the
+  // account-wide quota, not the seven-day Code quota shown in the footer.
+  const limits = (data?.limits ?? [])
+    .map((limit: any) => ({ usage: toWindow(limit?.detail), minutes: durationMinutes(limit?.window) }))
+    .filter((limit: { usage: WindowUsage | undefined }) => limit.usage);
+  const session = limits.find((limit: { minutes?: number }) => limit.minutes === 5 * 60)?.usage
+    ?? limits.sort((a: { minutes?: number }, b: { minutes?: number }) => (a.minutes ?? Infinity) - (b.minutes ?? Infinity))[0]?.usage;
+  const weekly = limits.find((limit: { minutes?: number }) => limit.minutes === 7 * 24 * 60)?.usage;
+  if (!session) throw new Error("unrecognized response shape");
+  return { session, sessionLabel: "5h", weekly };
 }
 
 // --- fetching ---
@@ -93,26 +104,20 @@ export function usageColor(percent: number): "success" | "warning" | "error" {
   return "error";
 }
 
-function renderBar(percent: number): string {
-  const cells = 8;
-  const filled = Math.round((Math.max(0, Math.min(100, percent)) / 100) * cells);
-  return "█".repeat(filled) + "░".repeat(cells - filled);
-}
-
 function renderReset(resetsAtMs: number | undefined, nowMs: number): string {
   if (resetsAtMs === undefined) return "";
   const minutes = Math.max(0, Math.round((resetsAtMs - nowMs) / 60_000));
   const text = minutes < 60 ? `${minutes}m` : minutes < 48 * 60 ? `${Math.round(minutes / 60)}h` : `${Math.round(minutes / (24 * 60))}d`;
-  return ` ⟳ ${text}`;
+  return ` ↻ ${text}`;
 }
 
-function render(theme: Theme, label: string, usage: ProviderUsage): string {
+function render(theme: Theme, usage: ProviderUsage): string {
   const nowMs = Date.now();
-  const windowText = (win: WindowUsage) =>
-    theme.fg(usageColor(win.percent), `${renderBar(win.percent)} ${Math.round(win.percent)}%`) +
+  const windowText = (label: string, win: WindowUsage) =>
+    theme.fg("muted", `${label}: `) + theme.fg(usageColor(win.percent), `${Math.round(win.percent)}%`) +
     theme.fg("dim", renderReset(win.resetsAtMs, nowMs));
-  let text = theme.fg("dim", `${label} `) + theme.fg("muted", `${usage.sessionLabel} `) + windowText(usage.session);
-  if (usage.weekly) text += theme.fg("dim", " · W ") + windowText(usage.weekly);
+  let text = windowText(usage.sessionLabel, usage.session);
+  if (usage.weekly) text += theme.fg("dim", " | ") + windowText("7d", usage.weekly);
   return text;
 }
 
@@ -151,7 +156,7 @@ export default function usageStatus(pi: ExtensionAPI) {
           : await fetchJson(KIMI_USAGE_URL, token, { "User-Agent": "KimiCLI/1.5" });
       const usage = provider === "openai-codex" ? parseCodexUsage(data, Date.now()) : parseKimiUsage(data, Date.now());
       if (gen !== generation) return;
-      ctx.ui.setStatus(STATUS_KEY, render(theme, label, usage));
+      ctx.ui.setStatus(STATUS_KEY, render(theme, usage));
     } catch (error) {
       if (gen !== generation) return;
       const message = error instanceof Error ? error.message : String(error);

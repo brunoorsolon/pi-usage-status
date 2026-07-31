@@ -32,18 +32,22 @@ assert.deepEqual(parseCodexUsage({
   },
 }, now), {
   session: { percent: 71, resetsAtMs: now + 511_632_000 },
-  sessionLabel: "W",
+  sessionLabel: "7d",
 });
 
-// Kimi: limits[0] is the short window, usage is the overall quota.
+// Kimi returns rolling windows in no guaranteed order; root usage is account-wide.
 assert.deepEqual(parseKimiUsage({
-  usage: { limit: "100", used: "63", resetTime: "2026-08-05T12:12:42.477Z" },
-  limits: [{ window: { duration: 300, timeUnit: "TIME_UNIT_MINUTE" },
-    detail: { limit: "100", used: "54", resetTime: "2026-07-30T23:12:42.477Z" } }],
+  usage: { limit: "100", used: "14.15", resetTime: "2026-08-29T00:00:00.000Z" },
+  limits: [
+    { window: { duration: 10080, timeUnit: "TIME_UNIT_MINUTE" },
+      detail: { limit: "100", used: "67.46", resetTime: "2026-08-05T14:12:00.000Z" } },
+    { window: { duration: 300, timeUnit: "TIME_UNIT_MINUTE" },
+      detail: { limit: "100", used: "0.22", resetTime: "2026-07-31T11:12:00.000Z" } },
+  ],
 }, now), {
-  session: { percent: 54, resetsAtMs: Date.parse("2026-07-30T23:12:42.477Z") },
+  session: { percent: 0.22, resetsAtMs: Date.parse("2026-07-31T11:12:00.000Z") },
   sessionLabel: "5h",
-  weekly: { percent: 63, resetsAtMs: Date.parse("2026-08-05T12:12:42.477Z") },
+  weekly: { percent: 67.46, resetsAtMs: Date.parse("2026-08-05T14:12:00.000Z") },
 });
 
 assert.throws(() => parseKimiUsage({}), /unrecognized response shape/);

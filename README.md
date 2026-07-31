@@ -5,7 +5,7 @@ Pi extension that renders the active provider's quota in the footer.
 Supported providers:
 
 - **OpenAI Codex** (subscription) — 5h and weekly windows; Pro Lite plans that
-  expose a single seven-day `primary_window` are labeled `W`.
+  expose a single seven-day `primary_window` are labeled `7d`.
 - **Kimi Coding** (OAuth) — 5h window and overall quota. Resolves headers-only
   OAuth Bearer tokens, which is where other quota extensions fail for Kimi.
 
