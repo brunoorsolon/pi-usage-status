@@ -24,7 +24,7 @@ interface WindowUsage {
 
 interface ProviderUsage {
   session: WindowUsage;
-  sessionLabel: "5h" | "W";
+  sessionLabel: "5h" | "7d";
   weekly?: WindowUsage;
 }
 
@@ -45,7 +45,7 @@ export function parseCodexUsage(data: any, nowMs: number): ProviderUsage {
   });
   // Pro Lite exposes its weekly window as the only primary window.
   if (!secondary && Number(primary?.limit_window_seconds) === WEEK_SECONDS) {
-    return { session: toWindow(primary), sessionLabel: "W" };
+    return { session: toWindow(primary), sessionLabel: "7d" };
   }
   return {
     session: toWindow(primary),
@@ -104,26 +104,20 @@ export function usageColor(percent: number): "success" | "warning" | "error" {
   return "error";
 }
 
-function renderBar(percent: number): string {
-  const cells = 8;
-  const filled = Math.round((Math.max(0, Math.min(100, percent)) / 100) * cells);
-  return "█".repeat(filled) + "░".repeat(cells - filled);
-}
-
 function renderReset(resetsAtMs: number | undefined, nowMs: number): string {
   if (resetsAtMs === undefined) return "";
   const minutes = Math.max(0, Math.round((resetsAtMs - nowMs) / 60_000));
   const text = minutes < 60 ? `${minutes}m` : minutes < 48 * 60 ? `${Math.round(minutes / 60)}h` : `${Math.round(minutes / (24 * 60))}d`;
-  return ` ⟳ ${text}`;
+  return ` ↻ ${text}`;
 }
 
-function render(theme: Theme, label: string, usage: ProviderUsage): string {
+function render(theme: Theme, usage: ProviderUsage): string {
   const nowMs = Date.now();
-  const windowText = (win: WindowUsage) =>
-    theme.fg(usageColor(win.percent), `${renderBar(win.percent)} ${Math.round(win.percent)}%`) +
+  const windowText = (label: string, win: WindowUsage) =>
+    theme.fg("muted", `${label}: `) + theme.fg(usageColor(win.percent), `${Math.round(win.percent)}%`) +
     theme.fg("dim", renderReset(win.resetsAtMs, nowMs));
-  let text = theme.fg("dim", `${label} `) + theme.fg("muted", `${usage.sessionLabel} `) + windowText(usage.session);
-  if (usage.weekly) text += theme.fg("dim", " · W ") + windowText(usage.weekly);
+  let text = windowText(usage.sessionLabel, usage.session);
+  if (usage.weekly) text += theme.fg("dim", " | ") + windowText("7d", usage.weekly);
   return text;
 }
 
@@ -162,7 +156,7 @@ export default function usageStatus(pi: ExtensionAPI) {
           : await fetchJson(KIMI_USAGE_URL, token, { "User-Agent": "KimiCLI/1.5" });
       const usage = provider === "openai-codex" ? parseCodexUsage(data, Date.now()) : parseKimiUsage(data, Date.now());
       if (gen !== generation) return;
-      ctx.ui.setStatus(STATUS_KEY, render(theme, label, usage));
+      ctx.ui.setStatus(STATUS_KEY, render(theme, usage));
     } catch (error) {
       if (gen !== generation) return;
       const message = error instanceof Error ? error.message : String(error);

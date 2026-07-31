@@ -32,7 +32,7 @@ assert.deepEqual(parseCodexUsage({
   },
 }, now), {
   session: { percent: 71, resetsAtMs: now + 511_632_000 },
-  sessionLabel: "W",
+  sessionLabel: "7d",
 });
 
 // Kimi returns rolling windows in no guaranteed order; root usage is account-wide.
