@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 
-const { bearerToken, parseCodexUsage, parseKimiUsage } = await import(
+const { bearerToken, parseCodexUsage, parseKimiUsage, usageColor } = await import(
   "./extensions/usage-status.ts"
 );
 
@@ -47,5 +47,11 @@ assert.deepEqual(parseKimiUsage({
 });
 
 assert.throws(() => parseKimiUsage({}), /unrecognized response shape/);
+
+assert.equal(usageColor(0), "success");
+assert.equal(usageColor(50), "success");
+assert.equal(usageColor(51), "warning");
+assert.equal(usageColor(75), "warning");
+assert.equal(usageColor(76), "error");
 
 console.log("usage-status tests passed");
