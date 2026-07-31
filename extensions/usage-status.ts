@@ -117,7 +117,7 @@ function render(theme: Theme, usage: ProviderUsage): string {
     theme.fg("muted", `${label}: `) + theme.fg(usageColor(win.percent), `${Math.round(win.percent)}%`) +
     theme.fg("dim", renderReset(win.resetsAtMs, nowMs));
   let text = windowText(usage.sessionLabel, usage.session);
-  if (usage.weekly) text += " | " + windowText("7d", usage.weekly);
+  if (usage.weekly) text += theme.fg("dim", " | ") + windowText("7d", usage.weekly);
   return text;
 }
 
