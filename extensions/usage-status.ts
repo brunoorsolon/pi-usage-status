@@ -63,15 +63,26 @@ export function parseKimiUsage(data: any, nowMs: number): ProviderUsage {
     const resetMs = Date.parse(detail?.resetTime ?? "");
     return { percent: (used / limit) * 100, resetsAtMs: Number.isFinite(resetMs) ? resetMs : undefined };
   };
-  // limits[0] is the short (5-hour) window; `usage` is the overall quota.
-  const session = toWindow(data?.limits?.[0]?.detail);
-  const weekly = toWindow(data?.usage);
-  if (!session && !weekly) throw new Error("unrecognized response shape");
-  return {
-    session: session ?? weekly!,
-    sessionLabel: "5h",
-    weekly: session ? weekly : undefined,
+  const durationMinutes = (window: any): number | undefined => {
+    const duration = Number(window?.duration);
+    if (!Number.isFinite(duration) || duration <= 0) return undefined;
+    switch (window?.timeUnit) {
+      case "TIME_UNIT_MINUTE": return duration;
+      case "TIME_UNIT_HOUR": return duration * 60;
+      case "TIME_UNIT_DAY": return duration * 24 * 60;
+      default: return undefined;
+    }
   };
+  // The API returns the rolling windows in no guaranteed order. `usage` is the
+  // account-wide quota, not the seven-day Code quota shown in the footer.
+  const limits = (data?.limits ?? [])
+    .map((limit: any) => ({ usage: toWindow(limit?.detail), minutes: durationMinutes(limit?.window) }))
+    .filter((limit: { usage: WindowUsage | undefined }) => limit.usage);
+  const session = limits.find((limit: { minutes?: number }) => limit.minutes === 5 * 60)?.usage
+    ?? limits.sort((a: { minutes?: number }, b: { minutes?: number }) => (a.minutes ?? Infinity) - (b.minutes ?? Infinity))[0]?.usage;
+  const weekly = limits.find((limit: { minutes?: number }) => limit.minutes === 7 * 24 * 60)?.usage;
+  if (!session) throw new Error("unrecognized response shape");
+  return { session, sessionLabel: "5h", weekly };
 }
 
 // --- fetching ---
