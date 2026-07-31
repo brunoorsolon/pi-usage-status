@@ -80,7 +80,7 @@ export function parseKimiUsage(data: any, nowMs: number): ProviderUsage {
     .filter((limit: { usage: WindowUsage | undefined }) => limit.usage);
   const session = limits.find((limit: { minutes?: number }) => limit.minutes === 5 * 60)?.usage
     ?? limits.sort((a: { minutes?: number }, b: { minutes?: number }) => (a.minutes ?? Infinity) - (b.minutes ?? Infinity))[0]?.usage;
-  const weekly = limits.find((limit: { minutes?: number }) => limit.minutes === 7 * 24 * 60)?.usage;
+  const weekly = limits.find((limit: { minutes?: number }) => limit.minutes === 7 * 24 * 60)?.usage ?? toWindow(data?.usage);
   if (!session) throw new Error("unrecognized response shape");
   return { session, sessionLabel: "5h", weekly };
 }
