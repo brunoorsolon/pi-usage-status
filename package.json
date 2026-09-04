@@ -9,5 +9,9 @@
   },
   "pi": {
     "extensions": ["extensions/usage-status.ts"]
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/brunoorsolon/pi-usage-status.git"
   }
 }
